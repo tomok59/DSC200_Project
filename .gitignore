@@ -1,12 +1,28 @@
-# Files over GitHub's 100 MB limit (use Git LFS or a Release to share them)
+# Chicago Crash Atlas: files Git should not track
+# (Tip: Finder hides this file. Press Cmd+Shift+. to show hidden files.)
+
+# Large data files: over GitHub's 100 MB file limit.
+# Share them with Git LFS, a GitHub Release, or gzip them (see DECISIONS.md, open question 3).
 data/export.csv
 output/chicago_crashes_clean.csv
 output/drop_summary.csv
-output/_clean_unsorted.tmp.csv
+*.tmp.csv
 
+# Python
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# Node (nothing needs installing, but just in case)
+node_modules/
+
+# Editors and operating system
 .DS_Store
-.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
