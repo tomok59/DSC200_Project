@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chicago Crash Atlas · Traffic crashes 2021–2026</title>
+  <meta name="description" content="Interactive map and filters for 577,000 Chicago traffic crashes (Jan 2021 – Apr 2026): where, when and why people are killed or seriously injured.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
+</head>
+<body>
+  <div id="loader" role="status" aria-live="polite">
+    <div class="loader-box">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <p id="load-text">Loading crash data…</p>
+      <div class="progress"><span id="load-progress"></span></div>
+    </div>
+  </div>
+
+  <header class="top">
+    <div class="title">
+      <h1>Chicago Crash Atlas</h1>
+      <p class="subtitle">Every police-reported traffic crash in Chicago, January 2021 – April 2026. Click any bar, map area or hot spot to filter. Every view updates together.</p>
+    </div>
+    <button id="open-methods" class="ghost" type="button">Data &amp; methods</button>
+  </header>
+
+  <section class="kpis" aria-label="Headline numbers for the current filters">
+    <div class="kpi"><span class="kpi-label">Crashes</span><span class="kpi-value" id="kpi-crashes">–</span><span class="kpi-sub" id="kpi-crashes-sub"></span></div>
+    <div class="kpi kpi-hot"><span class="kpi-label">Killed or seriously injured (KSI)</span><span class="kpi-value" id="kpi-ksi">–</span><span class="kpi-sub" id="kpi-ksi-sub"></span></div>
+    <div class="kpi"><span class="kpi-label">Fatalities</span><span class="kpi-value" id="kpi-fatal">–</span><span class="kpi-sub">people killed</span></div>
+    <div class="kpi"><span class="kpi-label">People injured</span><span class="kpi-value" id="kpi-inj">–</span><span class="kpi-sub" id="kpi-inj-sub"></span></div>
+  </section>
+
+  <nav class="filterbar" aria-label="Active filters">
+    <span class="fb-label">Filters</span>
+    <span id="no-filters" class="muted">None. Showing all crashes.</span>
+    <div id="chips"></div>
+    <button id="reset" type="button" class="ghost small" hidden>Reset all</button>
+  </nav>
+
+  <main>
+    <div class="stage">
+      <section class="card map-card" aria-label="Crash map">
+        <div id="map"></div>
+        <div id="map-tip" class="tip map-tip" role="tooltip"></div>
+        <div class="map-controls">
+          <fieldset>
+            <legend>Show</legend>
+            <label><input type="radio" name="layer-mode" value="auto" checked> <span id="auto-label">Auto</span></label>
+            <label><input type="radio" name="layer-mode" value="density"> Density</label>
+            <label><input type="radio" name="layer-mode" value="points"> Points</label>
+          </fieldset>
+          <fieldset>
+            <legend>Outlines</legend>
+            <label><input type="radio" name="boundary" value="neighborhood" checked> Neighborhoods</label>
+            <label><input type="radio" name="boundary" value="zip"> ZIP codes</label>
+            <label><input type="radio" name="boundary" value="none"> None</label>
+          </fieldset>
+        </div>
+        <div class="map-legend">
+          <div id="legend-points" class="legend-points" hidden></div>
+          <div id="legend-density" class="legend-density" hidden><span>fewer</span><i></i><span>more crashes</span></div>
+          <div id="zoom-read" class="muted"></div>
+        </div>
+      </section>
+
+      <aside class="card hot-card" aria-labelledby="hot-title">
+        <header><h3 id="hot-title">Hot spots</h3></header>
+        <p class="hint">Blocks (~80 m cells) with the most people killed or seriously injured, then most crashes, under the current filters. Click to zoom in.</p>
+        <ol id="hotspots" class="hotspots"></ol>
+      </aside>
+    </div>
+
+    <div id="timeline-host"></div>
+
+    <h2 class="group-title">When</h2>
+    <div class="grid grid-time" id="group-time"></div>
+    <h2 class="group-title">Where</h2>
+    <div class="grid grid-place" id="group-place"></div>
+    <h2 class="group-title">Severity</h2>
+    <div class="grid" id="group-severity"></div>
+    <h2 class="group-title">Road &amp; conditions</h2>
+    <div class="grid" id="group-conditions"></div>
+    <h2 class="group-title">The crash</h2>
+    <div class="grid" id="group-crash"></div>
+  </main>
+
+  <footer>
+    <p>Data: City of Chicago Data Portal: Traffic Crashes – Crashes; Boundaries – Community Areas (<code>igwz-8jzy</code>); Boundaries – ZIP Codes (<code>unjd-c2ca</code>). Basemap © CARTO, © OpenStreetMap contributors. Cleaned with rules R01–R16 (see <em>Data &amp; methods</em>).</p>
+  </footer>
+
+  <dialog id="methods" aria-labelledby="methods-title">
+    <header>
+      <h2 id="methods-title">Data &amp; methods</h2>
+      <button id="close-methods" type="button" class="ghost small" aria-label="Close">Close</button>
+    </header>
+    <p><span id="m-in">–</span> raw rows → <strong><span id="m-out">–</span> crashes kept</strong>, <span id="m-drop">–</span> dropped. Each cleaning rule has an ID that also appears in the notebook (<code>notebook/chicago_crash_cleaning.ipynb</code>), the drop summary (<code>output/drop_summary.csv</code>, column <code>RULE_ID</code>) and <code>output/export_manifest.json</code>.</p>
+    <ol id="rules-list" class="rules-list"></ol>
+    <h3>Reading the numbers</h3>
+    <ul>
+      <li><strong>KSI</strong> = people killed + people with incapacitating ("serious") injuries in a crash.</li>
+      <li>A chart for a filtered field keeps showing every value (counted under all the <em>other</em> filters), so you can add or swap values. Selected values are highlighted.</li>
+      <li>Hot spots are ~80 m grid cells. The label is the block of one crash in that cell.</li>
+      <li>"Neighborhood" uses the city's 77 community areas, the boundary file this project was given.</li>
+      <li>The filter state is kept in the page address, so you can share a filtered view by copying the URL.</li>
+    </ul>
+  </dialog>
+
+  <div id="perf" class="perf" hidden><div id="perf-filter"></div><div id="perf-frame"></div></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
