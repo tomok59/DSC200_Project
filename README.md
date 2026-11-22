@@ -1,6 +1,6 @@
 # Chicago Crash Atlas
 
-Interactive map and cross-filtering dashboard for **577,130 Chicago traffic crashes (January 2021 – April 2026)**, built from the City of Chicago's *Traffic Crashes – Crashes* dataset, plus the pipeline that cleans it.
+[Interactive map](https://tomok59.github.io/DSC200_Project/) and cross-filtering dashboard for **577,130 Chicago traffic crashes (January 2021 – April 2026)**, built from the City of Chicago's *Traffic Crashes – Crashes* dataset, plus the pipeline that cleans it.
 
 | Deliverable | Where |
 |---|---|
@@ -8,7 +8,7 @@ Interactive map and cross-filtering dashboard for **577,130 Chicago traffic cras
 | Drop summary (every dropped row + rule ID) | `output/drop_summary.csv` |
 | Points outside the Chicago bounding box | `output/out_of_bounds_points.csv` (empty: none found) |
 | Per-rule counts, hashes | `output/export_manifest.json`, `output/cleaning_report.md` |
-| Website (GitHub Pages) | `docs/` |
+| Website (GitHub Pages) | `docs/`, live at https://tomok59.github.io/DSC200_Project/ |
 | Notebook ("Run all" rebuilds everything) | `notebook/chicago_crash_cleaning.ipynb` |
 | Test cases (written first) + tests | `tests/TEST_CASES.md`, `tests/` |
 | Architecture: use case, component, sequence diagrams | `design/ARCHITECTURE.md` (+ PNGs) |
