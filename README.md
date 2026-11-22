@@ -1,6 +1,6 @@
 # Chicago Crash Atlas
 
-Interactive map and cross-filtering dashboard for **577,130 Chicago traffic crashes (January 2021 – April 2026)**, built from the City of Chicago's *Traffic Crashes – Crashes* dataset, plus the pipeline that cleans it.
+[Interactive map](https://tomok59.github.io/DSC200_Project/) and cross-filtering dashboard for **577,130 Chicago traffic crashes (January 2021 – April 2026)**, built from the City of Chicago's *Traffic Crashes – Crashes* dataset, plus the pipeline that cleans it.
 
 | Deliverable | Where |
 |---|---|
