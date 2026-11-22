@@ -52,7 +52,7 @@ The site needs no build step. MapLibre GL and deck.gl load from unpkg, and the b
 
 * `docs/data/crashes.bin.gz` holds the 577k crashes as a 5.1 MB column-wise binary (one code per category per crash). It is decompressed in the browser.
 * `docs/js/engine.js` handles filtering. Every crash keeps a 32-bit mask of the filters it fails. A filter change flips one bit per crash, and one pass recomputes the headline numbers, all 31 charts, the hot-spot grid and the map's visibility mask. A filtered field's own chart ignores its own filter, so the other values stay visible and clickable (FR-4).
-* The map draws a GPU heatmap below zoom 8.5 and individual crashes at zoom 8.5 or closer, coloured and sized by severity, with a hover card (FR-3).
+* The map draws a density layer below zoom 8.5 and individual crashes at zoom 8.5 or closer, coloured and sized by severity, with a hover card (FR-3). The density layer is computed in the browser: filtered crashes are counted on a 1024 × 1024 grid (~40 m cells), smoothed, coloured on a log scale and drawn as one image. Community-area / ZIP outlines are drawn on top of the data, with a dark halo so they stay readable over dense points.
 
 ## Cleaning rules
 

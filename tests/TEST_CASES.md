@@ -24,7 +24,7 @@ Tests that need the full cleaned output (`output/…`) skip with a message if th
 | Rules R01–R16 (each rule) | UT-10 … UT-34 |
 | FR-1: cleaned CSV has no missing values | FT-01 (+UT-01) |
 | FR-2: every filter is interactive and filters correctly | FT-02, FT-03, FT-04 |
-| FR-3: map density / points / severity style / hover fields | FT-05, FT-06, FT-07, FT-08 |
+| FR-3: map density / points / severity style / hover fields | FT-05, FT-06, FT-07, FT-08, FT-12, FT-13 |
 | FR-4: all views describe the same filtered set; own-filter exclusion | FT-09, FT-10, FT-11 |
 | NFR-1: visible update ≤ 1 s | NFT-01 (engine) + NFT-M1 (manual) |
 | NFR-2: data download ≤ 10 MB | NFT-02 |
@@ -84,6 +84,8 @@ Tests that need the full cleaned output (`output/…`) skip with a message if th
 | FT-09 | FR-4 | Headline count = map mask sum = sum of every un-filtered chart = sum of hot-spot grid | all equal |
 | FT-10 | FR-4 | A filtered dimension's own chart equals the brute-force histogram of rows that pass every **other** filter | equal |
 | FT-11 | FR-4 | Hot-spot list is computed from the filtered set only (no crash outside the filter contributes) | all hot-spot crashes pass filters |
+| FT-12 | FR-3 | *(added after review)* Density image is coloured where filtered crashes are, transparent where crashes are filtered out or absent; north is up; empty filter → fully transparent | as stated |
+| FT-13 | FR-3 / usability | *(added after review)* Layer order: clickable area fills → density or points → outline halo → outlines; outlines are not pickable so point hover still works; switching boundary keeps outlines on top | exact order |
 
 ## Non-functional test cases
 

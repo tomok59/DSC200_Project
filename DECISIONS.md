@@ -60,7 +60,8 @@ Each dropped row's first failing rule is its `RULE_ID`. `ALL_FAILED_RULES` lists
 | AR-3 | The filter state is kept in the URL, so a filtered view can be shared | usability for City staff and services |
 | AR-4 | Map mode switch (Auto / Density / Points) and outline switch (community areas / ZIP / none); clicking an area filters by it | FR-3 threshold is strict (see Q2); the switch lets users choose |
 | AR-5 | `?perf=1` overlay showing filter→views time and map frame time | makes NFR-3's 250 ms / 33 ms testable by hand (NFT-M2) |
-| AR-6 | Fallbacks: plain dark map if the basemap host is blocked; dot density if the GPU heatmap is unsupported | the site keeps working on restricted networks and older GPUs |
+| AR-6 | Fallback to a plain dark map if the basemap host is blocked. The density view is computed in the browser and drawn as a single image, not with deck.gl's HeatmapLayer, which didn't render the site's compact binary data | the site keeps working on restricted networks and on any GPU |
+| AR-10 | Area outlines (community areas / ZIP codes) are drawn above the crash points and the density layer, with a dark halo; clicking inside an area still filters by it | outlines were hard to see under dense points (review feedback) |
 | AR-7 | Accessibility: every bar is a keyboard-focusable button with `aria-pressed`; values are printed next to every bar (no colour-only meaning); reduced-motion support | usable by anyone |
 | AR-8 | `export_manifest.json` records the input's SHA-256, per-rule counts and output hashes | traceability; acceptance test AT-01 |
 | AR-9 | Browser support: a modern browser with WebGL and `DecompressionStream` (Chrome/Edge 80+, Firefox 113+, Safari 16.4+) | needed to render 577k points smoothly |

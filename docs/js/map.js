@@ -1,7 +1,10 @@
 // Map view: MapLibre basemap + deck.gl layers (WebGL, so 577k points draw well under 33 ms/frame).
-// Density (heatmap) below POINT_ZOOM, individual crashes at POINT_ZOOM or closer (FR-3).
+// Density below POINT_ZOOM, individual crashes at POINT_ZOOM or closer (FR-3).
+// Layer order, bottom → top: clickable area fills · density or points · area outlines · focus ring.
 /* global maplibregl, deck */
-import { layerModeForZoom, severityStyle, severityRank, SEVERITY_ORDER } from "./maphelpers.js";
+import { layerModeForZoom, severityStyle, severityRank, SEVERITY_ORDER, densityRaster } from "./maphelpers.js";
+
+const DENSITY_GRID_BITS = 10; // 1024 x 1024 cells over the bounding box (~40 m each)
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 // Used when the basemap host can't be reached (offline, strict CSP): plain dark canvas + our outlines.
@@ -17,8 +20,6 @@ async function pickStyle() {
   }
 }
 const CITY_BOUNDS = [[-87.94, 41.644], [-87.524, 42.023]];
-// one hue (amber) from dark to light: magnitude only
-const HEAT_RANGE = [[70, 30, 10], [130, 55, 15], [190, 85, 25], [236, 120, 45], [250, 175, 90], [255, 232, 185]];
 
 export class CrashMap {
   constructor(el, model, { onAreaClick, onHover, onModeChange }) {
@@ -63,17 +64,7 @@ export class CrashMap {
       attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false,
     });
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-    this.overlay = new deck.MapboxOverlay({
-      interleaved: false, layers: [],
-      onError: (err, layer) => {
-        // if the GPU heatmap is not supported, fall back to small additive "glow" dots
-        if (layer && layer.id === "density" && !this.heatFailed) {
-          console.warn("heatmap unavailable, using dot density", err);
-          this.heatFailed = true;
-          this.render();
-        }
-      },
-    });
+    this.overlay = new deck.MapboxOverlay({ interleaved: false, layers: [] });
     this.map.addControl(this.overlay);
     this.map.on("zoom", () => {
       const z = this.map.getZoom();
@@ -108,6 +99,19 @@ export class CrashMap {
     this.render();
   }
 
+  /** Density image for the current filters, rebuilt only when the filters change. */
+  _densityImage() {
+    if (this._densVersion === this.version && this._densCanvas) return this._densCanvas;
+    const c = this.model.cols;
+    const r = densityRaster(this.mask, c.qlat, c.qlon, DENSITY_GRID_BITS, 2, (this._densWork ||= {}));
+    const canvas = document.createElement("canvas"); // new object → deck uploads a new texture
+    canvas.width = canvas.height = r.size;
+    canvas.getContext("2d").putImageData(new ImageData(r.rgba, r.size, r.size), 0, 0);
+    this._densCanvas = canvas;
+    this._densVersion = this.version;
+    return canvas;
+  }
+
   _points(id, L) {
     const zoom = this.zoom();
     const scale = Math.max(0.55, Math.min(2.2, Math.pow(1.22, zoom - 12)));
@@ -130,45 +134,50 @@ export class CrashMap {
 
   render() {
     if (!this.overlay || !this.mask) return;
-    const m = this.model, mode = this.currentMode();
+    const mode = this.currentMode();
     this.lastMode = mode;
     const layers = [];
     const g = this.boundary !== "none" && this.geo ? this.geo[this.boundary] : null;
+    const isSel = (f) => !!this.selectedNames?.has(f.properties.name);
+    const areaTrig = `${this.boundary}-${this.areaVersion || 0}`;
+
+    // 1. area fills: below the data, nearly invisible, but clickable (click = filter by that area)
     if (g) {
       layers.push(new deck.GeoJsonLayer({
-        id: "areas-" + this.boundary, data: g, stroked: true, filled: true, pickable: true,
-        getFillColor: (f) => (this.selectedNames?.has(f.properties.name) ? [57, 135, 229, 50] : [0, 0, 0, 0]),
-        getLineColor: (f) => (this.selectedNames?.has(f.properties.name) ? [120, 180, 255, 230] : [200, 200, 210, 70]),
-        lineWidthUnits: "pixels", getLineWidth: (f) => (this.selectedNames?.has(f.properties.name) ? 2 : 1),
-        updateTriggers: { getFillColor: this.areaVersion, getLineColor: this.areaVersion, getLineWidth: this.areaVersion },
+        id: "area-fills", data: g, stroked: false, filled: true, pickable: true,
+        getFillColor: (f) => (isSel(f) ? [57, 135, 229, 45] : [0, 0, 0, 1]),
+        updateTriggers: { getFillColor: areaTrig },
         onClick: (info) => info.object && this.onAreaClick(this.boundary, info.object.properties.name),
       }));
     }
-    if (mode === "density" && this.heatFailed) {
-      layers.push(new deck.ScatterplotLayer({
-        id: "density-dots",
-        data: { length: m.n, attributes: {
-          getPosition: { value: m.positions, size: 2 },
-          getFilterValue: { value: this.mask, size: 1 },
-        } },
-        getFillColor: [250, 160, 60, 40], radiusUnits: "pixels", getRadius: 1.6, stroked: false,
-        extensions: [new deck.DataFilterExtension({ filterSize: 1 })], filterRange: [0.5, 1],
-        updateTriggers: { getFilterValue: this.version }, parameters: { depthTest: false },
-      }));
-    } else if (mode === "density") {
-      layers.push(new deck.HeatmapLayer({
-        id: "density",
-        data: { length: m.n, attributes: {
-          getPosition: { value: m.positions, size: 2 },
-          getWeight: { value: this.mask, size: 1 },
-        } },
-        radiusPixels: 22, intensity: 1.1, threshold: 0.04, colorRange: HEAT_RANGE, aggregation: "SUM",
-        updateTriggers: { getWeight: this.version },
+
+    // 2. the data
+    if (mode === "density") {
+      const { LAT0, LAT1, LON0, LON1 } = this.model.bbox;
+      layers.push(new deck.BitmapLayer({
+        id: "density", image: this._densityImage(), bounds: [LON0, LAT0, LON1, LAT1],
+        pickable: false, parameters: { depthTest: false },
       }));
     } else {
       layers.push(this._points("crashes-base", this.base));
       layers.push(this._points("crashes-injury", this.top));
     }
+
+    // 3. outlines ON TOP of the data: dark halo + bright line, so they read over dense points
+    if (g) {
+      layers.push(new deck.GeoJsonLayer({
+        id: "area-halo", data: g, stroked: true, filled: false, pickable: false,
+        lineWidthUnits: "pixels", getLineWidth: (f) => (isSel(f) ? 5 : 3.5), getLineColor: [8, 10, 14, 210],
+        updateTriggers: { getLineWidth: areaTrig }, parameters: { depthTest: false },
+      }));
+      layers.push(new deck.GeoJsonLayer({
+        id: "area-lines", data: g, stroked: true, filled: false, pickable: false,
+        lineWidthUnits: "pixels", getLineWidth: (f) => (isSel(f) ? 2.5 : 1.4),
+        getLineColor: (f) => (isSel(f) ? [120, 180, 255, 255] : [236, 238, 245, 200]),
+        updateTriggers: { getLineWidth: areaTrig, getLineColor: areaTrig }, parameters: { depthTest: false },
+      }));
+    }
+
     if (this.focus) {
       layers.push(new deck.ScatterplotLayer({
         id: "focus", data: [this.focus], getPosition: (d) => d, getRadius: 70, radiusUnits: "meters",

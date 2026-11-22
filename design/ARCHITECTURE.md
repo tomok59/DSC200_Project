@@ -123,7 +123,7 @@ sequenceDiagram
   B->>E: compute()
   E-->>B: counts, histograms, mask, hot spots
   B->>M: setMask(mask)
-  M-->>U: density (zoom < 8.5) or points (zoom ≥ 8.5)
+  M-->>U: density image (zoom < 8.5) or points (zoom ≥ 8.5), outlines on top
 ```
 
 ### 3b. Changing a filter (FR-2, FR-4, NFR-1/3)
